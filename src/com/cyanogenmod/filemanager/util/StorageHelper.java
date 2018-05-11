@@ -19,6 +19,7 @@ import android.content.Context;
 import android.os.Environment;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.util.Log;
 
 import com.cyanogenmod.filemanager.FileManagerApplication;
 import com.cyanogenmod.filemanager.R;
@@ -26,6 +27,10 @@ import com.cyanogenmod.filemanager.R;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+
+import static android.content.Context.STORAGE_SERVICE;
 
 
 /**
@@ -49,7 +54,7 @@ public final class StorageHelper {
             //IMP!! Android SDK doesn't have a "getVolumeList" but is supported by CM10.
             //Use reflect to get this value (if possible)
             try {
-                StorageManager sm = (StorageManager) ctx.getSystemService(Context.STORAGE_SERVICE);
+                StorageManager sm = (StorageManager) ctx.getSystemService(STORAGE_SERVICE);
                 Method method = sm.getClass().getMethod("getVolumeList"); //$NON-NLS-1$
                 sStorageVolumes = (StorageVolume[])method.invoke(sm);
 
@@ -180,5 +185,31 @@ public final class StorageHelper {
         }
         return null;
     }
-
+    public static List<HomeDirBean> getAllExternalStorage(Context context) {
+        List<HomeDirBean> storagePath = new ArrayList<>();
+        StorageManager storageManager = (StorageManager) context.getSystemService(STORAGE_SERVICE);
+        StorageVolume[] storageVolumes;
+        try {
+            Method getVolumeList = StorageManager.class.getDeclaredMethod("getVolumeList");
+            storageVolumes = (StorageVolume[]) getVolumeList.invoke(storageManager);
+            Method getVolumeState = StorageManager.class.getDeclaredMethod("getVolumeState", String.class);
+            for (StorageVolume storageVolume : storageVolumes) {
+                String desc = storageVolume.getDescription(context);
+                Log.i("zhao", "storageVolume name--->" + desc);
+                Method getPath = StorageVolume.class.getMethod("getPath");
+                String path = (String) getPath.invoke(storageVolume);
+                Log.i("zhao", "StoragePath--->" + path);
+                //这里需要用StorageManager反射调用getVolumeState函数，而不应该用StorageVolume的getState方法，因为可能会报错
+                String state = (String) getVolumeState.invoke(storageManager, path);
+                Log.i("zhao", "storageVolume State--->" + state);
+                if (Environment.MEDIA_MOUNTED.equals(state)) {
+                    HomeDirBean bean = new HomeDirBean(path, desc);
+                    storagePath.add(bean);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("zhao", e.getMessage());
+        }
+        return storagePath;
+    }
 }

@@ -6,3 +6,6 @@
 /.project
 /lint.xml
 /project.properties
+/.idea
+/.gradle
+/build
